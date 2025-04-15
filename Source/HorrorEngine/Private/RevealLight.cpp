@@ -109,6 +109,13 @@ void URevealLight::AdjustOpacity(UMaterialInstanceDynamic* DynamicMaterial, floa
         CurrentOpacity = FMath::Clamp(CurrentOpacity + OpacityIncrement, 0.0f, 1.0f);
         if (CurrentOpacity == 1.0f)
         {
+            // Activer un collider bloquant le joueur
+            HitResult->GetComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+
+            // Définir le canal de collision et les réponses
+            HitResult->GetComponent()->SetCollisionObjectType(ECC_WorldDynamic);
+            HitResult->GetComponent()->SetCollisionResponseToAllChannels(ECR_Block);
+
             HitResult->GetComponent()->ComponentTags.Remove(FName("Revealable"));
         }
     }
@@ -118,6 +125,8 @@ void URevealLight::AdjustOpacity(UMaterialInstanceDynamic* DynamicMaterial, floa
         CurrentOpacity = FMath::Clamp(CurrentOpacity - OpacityIncrement, 0.0f, 1.0f);
         if (CurrentOpacity == 0.0f)
         {
+            // Désactiver les collisions pour le composant
+            HitResult->GetComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
             HitResult->GetComponent()->ComponentTags.Remove(FName("Revealable"));
         }
     }
