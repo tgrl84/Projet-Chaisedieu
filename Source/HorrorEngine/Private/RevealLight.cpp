@@ -8,7 +8,7 @@
 URevealLight::URevealLight()
 {
     PrimaryComponentTick.bCanEverTick = true;
-    TransitionTime = 5.0f; // DurÈe par dÈfaut pour rendre le matÈriau transparent
+    TransitionTime = 5.0f; // Dur√©e par d√©faut pour rendre le mat√©riau transparent
 }
 
 void URevealLight::BeginPlay()
@@ -47,39 +47,52 @@ void URevealLight::TickComponent(float DeltaTime, ELevelTick TickType, FActorCom
             if (HitResult.GetComponent()->ComponentTags.Num() > 0)
             {
                 AHiddenStaticMesh* HiddenMeshActor = Cast<AHiddenStaticMesh>(HitResult.GetActor());
-                if (HitResult.GetComponent()->ComponentTags.Contains(FName("Revealable")) && HiddenMeshActor->getIsCaptured())
-                {
-                    HiddenMeshActor->SetMeshVisible();
-                    UE_LOG(LogTemp, Log, TEXT("Mesh visibility changed for actor: %s"), *HiddenMeshActor->GetName());
-
-                    UMaterialInterface* Material = HitResult.GetComponent()->GetMaterial(0);
-                    if (Material)
+                if (HiddenMeshActor) {
+                    if (HitResult.GetComponent()->ComponentTags.Contains(FName("Revealable")) && HiddenMeshActor->getIsCaptured())
                     {
-                        UMaterialInstanceDynamic* DynamicMaterial = Cast<UMaterialInstanceDynamic>(HitResult.GetComponent()->GetMaterial(0));
-                        if (DynamicMaterial)
-                        {
-                            UE_LOG(LogTemp, Log, TEXT("Dynamic material found for actor: %s"), *HiddenMeshActor->GetName());
+                        HiddenMeshActor->SetMeshVisible();
+                        UE_LOG(LogTemp, Log, TEXT("Mesh visibility changed for actor: %s"), *HiddenMeshActor->GetName());
 
-                            if (HitResult.GetComponent()->ComponentTags.Contains(FName("0To1")))
+                        UPrimitiveComponent* HitComponent = HitResult.GetComponent();
+                        int32 MaterialCount = HitComponent->GetNumMaterials();
+
+                        TArray<UMaterialInstanceDynamic*> DynamicMaterials;
+
+                        // Remplacer tous les mat√©riaux par des versions dynamiques
+                        for (int32 i = 0; i < MaterialCount; ++i)
+                        {
+                            UMaterialInstanceDynamic* DynamicMaterial = HitComponent->CreateAndSetMaterialInstanceDynamic(i);
+                            if (DynamicMaterial)
                             {
-                                // Augmenter progressivement l'opacitÈ
-                                AdjustOpacity(DynamicMaterial, DeltaTime, true, &HitResult);
-                            }
-                            else if (HitResult.GetComponent()->ComponentTags.Contains(FName("1To0")))
-                            {
-                                // RÈduire progressivement l'opacitÈ
-                                AdjustOpacity(DynamicMaterial, DeltaTime, false, &HitResult);
+                                DynamicMaterials.Add(DynamicMaterial);
                             }
                         }
-                        else
-                        {
-                            UE_LOG(LogTemp, Warning, TEXT("No dynamic material found for actor: %s"), *HiddenMeshActor->GetName());
+                        for (UMaterialInstanceDynamic* DynamicMaterial : DynamicMaterials) {
+                            if (DynamicMaterial)
+                            {
+                                UE_LOG(LogTemp, Log, TEXT("Dynamic material found for actor: %s"), *HiddenMeshActor->GetName());
+
+                                if (HitResult.GetComponent()->ComponentTags.Contains(FName("0To1")))
+                                {
+                                    // Augmenter progressivement l'opacit√©
+                                    AdjustOpacity(DynamicMaterial, DeltaTime, true, &HitResult);
+                                }
+                                else if (HitResult.GetComponent()->ComponentTags.Contains(FName("1To0")))
+                                {
+                                    // R√©duire progressivement l'opacit√©
+                                    AdjustOpacity(DynamicMaterial, DeltaTime, false, &HitResult);
+                                }
+                            }
+                            else
+                            {
+                                UE_LOG(LogTemp, Warning, TEXT("No dynamic material found for actor: %s"), *HiddenMeshActor->GetName());
+                            }
                         }
                     }
-                }
-                else
-                {
-                    UE_LOG(LogTemp, Warning, TEXT("Hit actor is not revealable or not captured: %s"), *HitResult.GetActor()->GetName());
+                    else
+                    {
+                        UE_LOG(LogTemp, Warning, TEXT("Hit actor is not revealable or not captured: %s"), *HitResult.GetActor()->GetName());
+                    }
                 }
             }
             else
@@ -96,43 +109,55 @@ void URevealLight::TickComponent(float DeltaTime, ELevelTick TickType, FActorCom
 
 void URevealLight::AdjustOpacity(UMaterialInstanceDynamic* DynamicMaterial, float DeltaTime, bool bIncrease, FHitResult* HitResult)
 {
-    // RÈcupÈrer l'opacitÈ actuelle ‡ partir du matÈriau dynamique
+    // R√©cup√©rer l'opacit√© actuelle √† partir du mat√©riau dynamique
     float CurrentOpacity;
     DynamicMaterial->GetScalarParameterValue(FName("Opacity"), CurrentOpacity);
 
     float OpacityIncrement = DeltaTime / TransitionTime;
 
-    // Augmenter ou diminuer l'opacitÈ
+    // Augmenter ou diminuer l'opacit√©
     if (bIncrease)
     {
-        // Augmenter l'opacitÈ progressivement jusqu'‡ 1
+        // Augmenter l'opacit√© progressivement jusqu'√† 1
         CurrentOpacity = FMath::Clamp(CurrentOpacity + OpacityIncrement, 0.0f, 1.0f);
         if (CurrentOpacity == 1.0f)
         {
             // Activer un collider bloquant le joueur
             HitResult->GetComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 
-            // DÈfinir le canal de collision et les rÈponses
+            // D√©finir le canal de collision et les r√©ponses
             HitResult->GetComponent()->SetCollisionObjectType(ECC_WorldDynamic);
             HitResult->GetComponent()->SetCollisionResponseToAllChannels(ECR_Block);
 
             HitResult->GetComponent()->ComponentTags.Remove(FName("Revealable"));
+            
+            // Retour aux mat√©riaux normaux
+            AHiddenStaticMesh* HiddenMeshActor = Cast<AHiddenStaticMesh>(HitResult->GetActor());
+            if (HiddenMeshActor && 
+                HiddenMeshActor->NormalMats.Num() == HitResult->GetComponent()->GetNumMaterials())
+            {
+                for (int32 i = 0; i < HitResult->GetComponent()->GetNumMaterials(); ++i)
+                {
+                    HitResult->GetComponent()->SetMaterial(i, HiddenMeshActor->NormalMats[i]);
+                }
+            }
+
+            HiddenMeshActor->SetIsRevealed(true);
         }
     }
     else
     {
-        // RÈduire l'opacitÈ progressivement jusqu'‡ 0
+        // R√©duire l'opacit√© progressivement jusqu'√† 0
         CurrentOpacity = FMath::Clamp(CurrentOpacity - OpacityIncrement, 0.0f, 1.0f);
         if (CurrentOpacity == 0.0f)
         {
-            // DÈsactiver les collisions pour le composant
+            // D√©sactiver les collisions pour le composant
             HitResult->GetComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
             HitResult->GetComponent()->ComponentTags.Remove(FName("Revealable"));
         }
     }
 
-    // Appliquer la nouvelle opacitÈ au matÈriau dynamique
+    // Appliquer la nouvelle opacit√© au mat√©riau dynamique
     DynamicMaterial->SetScalarParameterValue("Opacity", CurrentOpacity);
-
     UE_LOG(LogTemp, Log, TEXT("Current Opacity: %f"), CurrentOpacity);
 }

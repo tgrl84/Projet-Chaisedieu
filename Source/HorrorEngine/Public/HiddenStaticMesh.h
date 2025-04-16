@@ -1,5 +1,3 @@
-
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -22,9 +20,20 @@ class HORRORENGINE_API AHiddenStaticMesh : public AStaticMeshActor
 		UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Capture")
 		bool bIsCaptured;
 
+
+		UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Capture")
+		bool IsRevealed;
+
+		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Materials")
+		TArray<UMaterialInterface*> TranslucentMats;
+
+		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Materials")
+		TArray<UMaterialInterface*> NormalMats;
+
 		UFUNCTION(BlueprintCallable, Category = "Capture")
 		void SetIsCaptured(bool bCaptured);
 		bool getIsCaptured() { return bIsCaptured; }
 		void SetMeshVisible() { mesh->SetVisibleInSceneCaptureOnly(false); }
 		void SetMeshInvisible() { mesh->SetHiddenInSceneCapture(false); }
+		void SetIsRevealed(bool bRevealed);
 };
